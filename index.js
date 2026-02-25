@@ -8,12 +8,11 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
-    res.send('人类图专业 API 后端已成功启动！版本：v2.0');
+    res.send('人类图专业 API 后端已成功启动！版本：v2.0 (Bugfix)');
 });
 
-// 这是一个极其专业的 服务端 SVG 合成引擎
+// 服务端 SVG 合成引擎
 function generateProfessionalSVG(activePersonality, activeDesign, definedCenters) {
-    // 这里使用了与官方完全一致的底图坐标系，并加入了高级样式（圆角、阴影、背景色）
     const centersDef = {
         'Head': { d: 'M 200,30 L 245,95 L 155,95 Z', fill: '#fde047' },
         'Ajna': { d: 'M 155,115 L 245,115 L 200,180 Z', fill: '#86efac' },
@@ -105,7 +104,7 @@ function generateProfessionalSVG(activePersonality, activeDesign, definedCenters
     for (const [id, pos] of Object.entries(gatesPos)) {
         const g = parseInt(id);
         const active = isP(g) || isD(g);
-        const dy = g > 30 ? 4 : -4; // 简单文字偏移优化
+        const dy = g > 30 ? 4 : -4; 
         const color = active ? '#000000' : '#6b7280';
         const weight = active ? '900' : '600';
         const size = active ? '13px' : '11px';
@@ -116,7 +115,6 @@ function generateProfessionalSVG(activePersonality, activeDesign, definedCenters
     return svg;
 }
 
-// 伪随机哈希辅助，在没有加载庞大天文数据库时提供严密一致的逻辑排盘
 function pseudoHash(str) {
     let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
     for (let i = 0, ch; i < str.length; i++) {
@@ -131,15 +129,14 @@ function pseudoHash(str) {
 app.post('/api/generate-chart', (req, res) => {
     const { name, date, time, location } = req.body;
     
-    // 1. 服务端数据推演 (这里可以完美对接天文库计算真实的行星坐标映射 64 卦)
-    const seed = pseudoHash(`${name}-${date}-${time}-${location}`);
+    // 【修复点】：将 const 修改为了 let，防止在 rand 函数中重新赋值时触发 TypeError 导致崩溃
+    let seed = pseudoHash(`${name}-${date}-${time}-${location}`);
     const rand = () => { let t = seed += 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
     
     let activePersonality = [], activeDesign = [];
     while(activePersonality.length < 13) { let g = Math.floor(rand() * 64) + 1; if(!activePersonality.includes(g)) activePersonality.push(g); }
     while(activeDesign.length < 13) { let g = Math.floor(rand() * 64) + 1; if(!activeDesign.includes(g)) activeDesign.push(g); }
 
-    // 2. 推导通道与中心
     const gateToCenter = {
         64:'Head', 61:'Head', 63:'Head', 47:'Ajna', 24:'Ajna', 4:'Ajna', 17:'Ajna', 43:'Ajna', 11:'Ajna',
         62:'Throat', 23:'Throat', 56:'Throat', 31:'Throat', 8:'Throat', 33:'Throat', 16:'Throat', 20:'Throat', 45:'Throat', 12:'Throat', 35:'Throat',
@@ -163,10 +160,8 @@ app.post('/api/generate-chart', (req, res) => {
     });
     definedCenters = Array.from(definedCenters);
 
-    // 3. 服务端合成图片 (SVG 字符串)
     const svgChartImage = generateProfessionalSVG(activePersonality, activeDesign, definedCenters);
 
-    // 4. 封装完整数据下发
     const hasSacral = definedCenters.includes('Sacral');
     const hasThroat = definedCenters.includes('Throat');
     const hasMotor = ['Root', 'Solar', 'Sacral', 'Heart'].some(m => definedCenters.includes(m));
@@ -180,13 +175,12 @@ app.post('/api/generate-chart', (req, res) => {
         data: {
             name: name,
             type: type,
-            profile: "1/3", // 示例
+            profile: "1/3", 
             definition: definedCenters.length === 0 ? "无定义" : "一分人",
             authority: definedCenters.includes('Solar') ? '情绪型权威' : (definedCenters.includes('Sacral') ? '荐骨型权威' : '直觉型权威'),
             strategy: type.includes('生产者') ? '等待回应' : '等待邀请',
             notSelf: type.includes('生产者') ? '挫败' : '苦涩',
             cross: `右角度交叉之计划`,
-            // 这就是后端的魔法：直接返回合成好的图片代码！
             chartImageSVG: svgChartImage 
         }
     });
